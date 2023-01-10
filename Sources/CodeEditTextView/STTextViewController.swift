@@ -108,12 +108,17 @@ public class STTextViewController: NSViewController, STTextViewDelegate, ThemeAt
         textView.selectedLineHighlightColor = theme.lineHighlight
         textView.string = self.text.wrappedValue
         textView.widthTracksTextView = true
+        textView.textContainer.heightTracksTextView = true
         textView.highlightSelectedLine = true
         textView.allowsUndo = true
         textView.setupMenus()
         textView.delegate = self
 
         scrollView.documentView = textView
+        scrollView.addGestureRecognizer(NSClickGestureRecognizer(
+            target: self,
+            action: #selector(scrollViewClicked(_:)))
+        )
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -265,6 +270,17 @@ public class STTextViewController: NSViewController, STTextViewDelegate, ThemeAt
         keyIsDown = false
     }
 
+    // MARK: Gesture Handling
+
+    /// ScrollView click intercepted to place insertion point in file when
+    /// rect excluding the textview / rulerview is clicked
+    @objc func scrollViewClicked(_ click: NSClickGestureRecognizer) {
+        let click = click.location(in: textView.enclosingScrollView)
+        if !rulerView.frame.contains(click) && !textView.frame.contains(click) {
+            setCursorPosition((Int.max, Int.max))
+        }
+    }
+
     // MARK: Cursor Position
 
     private var cursorPosition: Published<(Int, Int)>.Publisher?
@@ -272,6 +288,14 @@ public class STTextViewController: NSViewController, STTextViewDelegate, ThemeAt
 
     private func setCursorPosition(_ position: (Int, Int)) {
         guard let provider = textView.textLayoutManager.textContentManager else {
+            return
+        }
+
+        //
+        guard !textView.string.isEmpty else {
+            if let zero = NSTextRange(NSRange(0..<0), provider: provider) {
+                textView.setSelectedRange(zero)
+            }
             return
         }
 
